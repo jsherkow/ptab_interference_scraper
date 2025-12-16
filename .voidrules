@@ -1,0 +1,13 @@
+## Development Setup
+
+## Script Execution
+
+🚨 IMPORTANT: Always use `uv run` to execute Python scripts in this project.
+
+Example:
+```shell
+uv run python src/patent_downloader/simple_scraper.py
+
+# JavaScript Templating
+Don't use python f-strings for the javascript. jinja2 is installed as a dependency. Use it
+to format the javascript for this script.
