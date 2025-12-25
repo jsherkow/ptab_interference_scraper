@@ -9,67 +9,75 @@ import re
 import aiohttp
 import logging
 
-async def get_papers(page: Page) -> list:
-    """Extracts paper information from the Papers table in the USPTO case viewer.
+async def get_papers(page: Page, section_id: str = 'papersSection') -> list:
+    """Extracts document information from the specified section in the USPTO case viewer.
     
     This function uses JavaScript evaluation to extract data from the AG Grid table
-    in the 'papersSection' of the webpage. It retrieves information for each paper 
-    including paper number, filing date, document name, and link availability.
+    in the specified section (either 'papersSection' or 'exhibitsSection') of the webpage. 
+    It retrieves information for each document including number, filing date, name, 
+    and link availability.
     
     Args:
         page (Page): The pyppeteer Page object representing the browser page.
+        section_id (str): The ID of the section to process ('papersSection' or 'exhibitsSection').
+            Defaults to 'papersSection'.
         
     Returns:
-        list: List of dictionaries containing paper information with the following fields:
+        list: List of dictionaries containing document information with the following fields:
             - index: Row index within the current page view
-            - paperNumber: The paper's identification number
-            - filingDate: The date when the paper was filed
-            - documentName: The name/title of the paper document
-            - hasLink: Boolean indicating if the paper has a downloadable link
+            - paperNumber: The document's identification number
+            - filingDate: The date when the document was filed
+            - documentName: The name/title of the document
+            - hasLink: Boolean indicating if the document has a downloadable link
     """
-    papers_data = await page.evaluate('''() => {
+    document_name_col = 3 if section_id=='papersSection' else 2
+    paper_number_col = 0
+    filing_date_col = 1
+    papers_data = await page.evaluate(f'''() => {{
         const results = [];
-        const papersSection = document.getElementById('papersSection');
-        if (!papersSection) return results;
+        const section = document.getElementById('{section_id}');
+        if (!section) return results;
         
-        const rows = papersSection.querySelectorAll('.ag-row');
+        const rows = section.querySelectorAll('.ag-row');
         
-        for (let i = 0; i < rows.length; i++) {
+        for (let i = 0; i < rows.length; i++) {{
             const row = rows[i];
             const cells = row.querySelectorAll('.ag-cell');
             
-            if (cells.length >= 4) {
-                results.push({
+            if (cells.length >= 4) {{
+                results.push({{
                     index: i,
-                    paperNumber: cells[0]?.textContent.trim() || 'N/A',
-                    filingDate: cells[1]?.textContent.trim() || 'N/A',
-                    documentName: cells[3]?.textContent.trim() || 'N/A',
+                    paperNumber: cells[{paper_number_col}]?.textContent.trim() || 'N/A',
+                    filingDate: cells[{filing_date_col}]?.textContent.trim() || 'N/A',
+                    documentName: cells[{document_name_col}]?.textContent.trim() || 'N/A',
                     hasLink: !!row.querySelector('app-open-document a')
-                });
-            }
-        }
+                }});
+            }}
+        }}
         
         return results;
-    }'''
+    }}'''
     )
 
     return papers_data
 
-async def get_paper_urls(page: Page, papers_data: list, page_num: int, global_index_offset: int):
-    """Extracts download URLs for papers by clicking their links in the USPTO case viewer.
+async def get_paper_urls(page: Page, papers_data: list, page_num: int, global_index_offset: int, section_id: str = 'papersSection'):
+    """Extracts download URLs for documents by clicking their links in the USPTO case viewer.
     
-    This function processes each paper in the provided list, clicks any available
-    download links, captures the resulting URLs, and adds them to the paper data.
+    This function processes each document in the provided list, clicks any available
+    download links, captures the resulting URLs, and adds them to the document data.
     
     Args:
         page (Page): The pyppeteer Page object representing the browser page.
-        papers_data (list): List of dictionaries containing paper information.
+        papers_data (list): List of dictionaries containing document information.
         page_num (int): Current page number being processed (for logging).
         global_index_offset (int): Offset to calculate global indices across multiple pages.
+        section_id (str): The ID of the section to process ('papersSection' or 'exhibitsSection').
+            Defaults to 'papersSection'.
         
     Returns:
-        list: Enhanced list of paper dictionaries with added 'downloadUrl' and 'globalIndex' fields.
-            Papers with no links or failed clicks will have appropriate error messages in their
+        list: Enhanced list of document dictionaries with added 'downloadUrl' and 'globalIndex' fields.
+            Documents with no links or failed clicks will have appropriate error messages in their
             'downloadUrl' field.
     """
     papers_with_urls = []
@@ -89,8 +97,8 @@ async def get_paper_urls(page: Page, papers_data: list, page_num: int, global_in
             
             # Click the link for this specific row
             clicked = await page.evaluate(f'''() => {{
-                const papersSection = document.getElementById('papersSection');
-                const rows = papersSection.querySelectorAll('.ag-row');
+                const section = document.getElementById('{section_id}');
+                const rows = section.querySelectorAll('.ag-row');
                 const row = rows[{paper['index']}];
                 const link = row.querySelector('app-open-document a');
                 if (link) {{
@@ -126,31 +134,39 @@ async def get_paper_urls(page: Page, papers_data: list, page_num: int, global_in
     return papers_with_urls
 
 
-async def scroll_to_next_page(page: Page) -> bool:
+async def scroll_to_next_page(page: Page, section_id: str = 'papersSection') -> bool:
     """Scroll the AG Grid table down to load a new page of content. 
-    Returns True if new content loaded, False if no more content."""
+    
+    Args:
+        page (Page): The pyppeteer Page object representing the browser page.
+        section_id (str): The ID of the section to scroll ('papersSection' or 'exhibitsSection').
+            Defaults to 'papersSection'.
+            
+    Returns:
+        bool: True if new content loaded, False if no more content.
+    """
     
     # Get current state before scrolling
-    before_scroll_info = await page.evaluate('''() => {
-        const papersSection = document.getElementById('papersSection');
-        if (!papersSection) return null;
+    before_scroll_info = await page.evaluate(f'''() => {{
+        const section = document.getElementById('{section_id}');
+        if (!section) return null;
         
-        const gridViewport = papersSection.querySelector('.ag-body-viewport');
+        const gridViewport = section.querySelector('.ag-body-viewport');
         if (!gridViewport) return null;
         
-        const rows = papersSection.querySelectorAll('.ag-row');
+        const rows = section.querySelectorAll('.ag-row');
         const lastRow = rows[rows.length - 1];
         
-        return {
+        return {{
             scrollTop: gridViewport.scrollTop,
             scrollHeight: gridViewport.scrollHeight,
             clientHeight: gridViewport.clientHeight,
             rowCount: rows.length,
             lastRowText: lastRow ? lastRow.textContent.trim() : null,
             // Track first visible row for better detection of new content
-            firstVisibleRow: papersSection.querySelector('.ag-row:first-child')?.textContent.trim() || null
-        };
-    }''')
+            firstVisibleRow: section.querySelector('.ag-row:first-child')?.textContent.trim() || null
+        }};
+    }}''')
     
     if not before_scroll_info:
         print("Could not find scrollable grid viewport")
@@ -166,29 +182,29 @@ async def scroll_to_next_page(page: Page) -> bool:
     
     # Scroll down by a significant amount to ensure we see new rows
     # Instead of just the viewport height, we'll use a multiplier to move further
-    scrolled = await page.evaluate('''() => {
-        const papersSection = document.getElementById('papersSection');
-        if (!papersSection) return false;
+    scrolled = await page.evaluate(f'''() => {{
+        const section = document.getElementById('{section_id}');
+        if (!section) return false;
         
-        const gridViewport = papersSection.querySelector('.ag-body-viewport');
+        const gridViewport = section.querySelector('.ag-body-viewport');
         if (!gridViewport) return false;
         
         // Get the height of a typical row
-        const rowHeight = papersSection.querySelector('.ag-row')?.clientHeight || 50;
+        const rowHeight = section.querySelector('.ag-row')?.clientHeight || 50;
         
         // Use a more conservative scroll amount to ensure we don't miss rows
         // Original was 20 rows or 3x viewport, now reduced to ensure more overlap
         const rowsToScroll = 15; // Scroll fewer rows to create more overlap
         const scrollAmount = rowHeight * rowsToScroll;
         
-        console.log(`Using conservative scroll of ${rowsToScroll} rows to avoid missing content`);
+        console.log(`Using conservative scroll of ${{rowsToScroll}} rows to avoid missing content`);
         
         // Apply the scroll
         gridViewport.scrollTop += scrollAmount;
         
-        console.log(`Scrolled down by ${scrollAmount}px (${rowsToScroll} rows)`);
+        console.log(`Scrolled down by ${{scrollAmount}}px (${{rowsToScroll}} rows)`);
         return true;
-    }''')
+    }}''')
     
     if not scrolled:
         return False
@@ -197,29 +213,29 @@ async def scroll_to_next_page(page: Page) -> bool:
     await asyncio.sleep(3)
     
     # Check if new content loaded
-    after_scroll_info = await page.evaluate('''() => {
-        const papersSection = document.getElementById('papersSection');
-        if (!papersSection) return null;
+    after_scroll_info = await page.evaluate(f'''() => {{
+        const section = document.getElementById('{section_id}');
+        if (!section) return null;
         
-        const gridViewport = papersSection.querySelector('.ag-body-viewport');
+        const gridViewport = section.querySelector('.ag-body-viewport');
         if (!gridViewport) return null;
         
-        const rows = papersSection.querySelectorAll('.ag-row');
+        const rows = section.querySelectorAll('.ag-row');
         const lastRow = rows[rows.length - 1];
         
         // Collect row IDs or content to better detect new rows
         const rowContents = Array.from(rows).map(row => row.textContent.trim());
         
-        return {
+        return {{
             scrollTop: gridViewport.scrollTop,
             scrollHeight: gridViewport.scrollHeight,
             clientHeight: gridViewport.clientHeight,
             rowCount: rows.length,
             lastRowText: lastRow ? lastRow.textContent.trim() : null,
-            firstVisibleRow: papersSection.querySelector('.ag-row:first-child')?.textContent.trim() || null,
+            firstVisibleRow: section.querySelector('.ag-row:first-child')?.textContent.trim() || null,
             rowContents: rowContents
-        };
-    }''')
+        }};
+    }}''')
     
     if not after_scroll_info:
         return False
@@ -332,6 +348,7 @@ async def scrape_tables(case_number: str, download_path: Path) -> None:
 
     Args:
         case_number: The USPTO case number to scrape.
+        download_path: The path where downloaded files will be saved.
     """
     url = f"https://ptacts.uspto.gov/interferences/public-informations/case-viewer/{case_number}"
 
@@ -387,97 +404,121 @@ async def scrape_tables(case_number: str, download_path: Path) -> None:
         print("Waiting for grid data to load...\n")
         await asyncio.sleep(3)
 
-        # Initialize variables for pagination
-        all_papers_with_urls = []
-        page_num = 1
-        global_index_offset = 0
+        # Process both the Papers and Exhibits sections
+        sections = ['papersSection', 'exhibitsSection']
+        all_documents_with_urls = []
         
-        print("=" * 120)
-        print("STARTING PAGINATION LOOP")
-        print("=" * 120)
-
-        # Loop through all pages
-        while True:
-            print(f"\n--- Processing Page {page_num} ---")
-            
-            # Extract paper data from current page
-            papers_data = await get_papers(page)
-            
-            if not papers_data:
-                print(f"No papers found on page {page_num}. Stopping pagination.")
-                break
-            
-            print(f"Found {len(papers_data)} papers on page {page_num}")
-
-            # Extract download URLs for papers on current page
+        for section_id in sections:
+            print("\n" + "=" * 120)
+            print(f"PROCESSING {section_id.upper().replace('SECTION', '')}")
             print("=" * 120)
-            print(f"EXTRACTING DOWNLOAD URLs - PAGE {page_num}")
+            
+            # Initialize variables for pagination
+            page_num = 1
+            global_index_offset = 0
+            section_documents_with_urls = []
+            
+            print("=" * 120)
+            print(f"STARTING PAGINATION LOOP FOR {section_id.upper().replace('SECTION', '')}")
             print("=" * 120)
 
-            papers_with_urls = await get_paper_urls(page, papers_data, page_num, global_index_offset)
-            all_papers_with_urls.extend(papers_with_urls)
-            
-            # Update global index offset for next page
-            global_index_offset += len(papers_data)
-            
-            print(f"\nPage {page_num} complete. Processed {len(papers_data)} papers.")
-            print(f"Total papers processed so far: {len(all_papers_with_urls)}")
-            
-            # Try to scroll to next page
-            print(f"\nAttempting to scroll to page {page_num + 1}...")
-            
-            if not await scroll_to_next_page(page):
-                print("No more pages available. Pagination complete.")
-                break
+            # Loop through all pages for this section
+            while True:
+                print(f"\n--- Processing Page {page_num} ---")
                 
-            print(f"Successfully scrolled to page {page_num + 1}")
-            page_num += 1
-x
-        print("\n" + "=" * 120)
+                # Extract document data from current page
+                documents_data = await get_papers(page, section_id)
+                
+                if not documents_data:
+                    print(f"No documents found on page {page_num} for {section_id}. Stopping pagination.")
+                    break
+                
+                print(f"Found {len(documents_data)} documents on page {page_num}")
+
+                # Extract download URLs for documents on current page
+                print("=" * 120)
+                print(f"EXTRACTING DOWNLOAD URLs - PAGE {page_num}")
+                print("=" * 120)
+
+                documents_with_urls = await get_paper_urls(page, documents_data, page_num, global_index_offset, section_id)
+                section_documents_with_urls.extend(documents_with_urls)
+                
+                # Update global index offset for next page
+                global_index_offset += len(documents_data)
+                
+                print(f"\nPage {page_num} complete. Processed {len(documents_data)} documents.")
+                print(f"Total documents processed so far in {section_id}: {len(section_documents_with_urls)}")
+                
+                # Try to scroll to next page
+                print(f"\nAttempting to scroll to page {page_num + 1}...")
+                
+                if not await scroll_to_next_page(page, section_id):
+                    print(f"No more pages available in {section_id}. Pagination complete.")
+                    break
+                    
+                print(f"Successfully scrolled to page {page_num + 1}")
+                page_num += 1
+
+            print("\n" + "=" * 120)
+            print(f"COMPLETED {section_id.upper().replace('SECTION', '')} SECTION")
+            print(f"Total documents found in {section_id}: {len(section_documents_with_urls)}")
+            print("=" * 120)
+            
+            # Add section type to each document
+            for doc in section_documents_with_urls:
+                doc['sectionType'] = section_id
+            
+            # Add documents from this section to the overall list
+            all_documents_with_urls.extend(section_documents_with_urls)
+
         # Create a dictionary with downloadUrl as the key, which automatically removes duplicates
-        unique_papers_dict = {paper['downloadUrl']: paper for paper in all_papers_with_urls}
-        print(f"Full list contains {len(all_papers_with_urls)}")
+        unique_documents_dict = {doc['downloadUrl']: doc for doc in all_documents_with_urls}
+        print(f"Full list contains {len(all_documents_with_urls)} documents")
 
         # Convert the dictionary values back to a list
-        all_papers_with_urls = list(unique_papers_dict.values())
-        print(f"Of which {len(all_papers_with_urls)} are unique")
+        all_documents_with_urls = list(unique_documents_dict.values())
+        print(f"Of which {len(all_documents_with_urls)} are unique")
 
         # Print final results
         print("\n" + "=" * 120)
-        print("FINAL RESULTS - ALL PAGES")
+        print("FINAL RESULTS - ALL SECTIONS")
         print("=" * 120)
         
-        # Download PDFs for papers with valid URLs
+        # Download PDFs for documents with valid URLs
         print("\n" + "=" * 120)
         print("DOWNLOADING PDFs")
         print("=" * 120)
         
         download_count = 0
         
-        for paper in all_papers_with_urls:
-            global_idx = paper.get('globalIndex', 0)
-            output_path = download_path / safe_filename(f"{paper['paperNumber']}-{paper['documentName']}.pdf")
+        for doc in all_documents_with_urls:
+            global_idx = doc.get('globalIndex', 0)
+            section_type = doc.get('sectionType', 'unknown').replace('Section', '')
             
-            print(f"{paper['paperNumber']:<10} | {paper['documentName'][:50]:<52} | ", end="", flush=True)
+            # Include section type in the filename
+            section_path = section_id.removesuffix("Section")  # "papers" or "exhibits"
+
+            output_path = download_path / section_type / safe_filename(f"{doc['paperNumber']}-{doc['documentName']}.pdf")
+            
+            print(f"[{section_type}] {doc['paperNumber']:<10} | {doc['documentName'][:50]:<52} | ", end="", flush=True)
             
             # Download the PDF if a valid URL is available
-            if paper.get('downloadUrl', '').startswith('http'):
-                success = await download_pdf(paper['downloadUrl'], output_path)
+            if doc.get('downloadUrl', '').startswith('http'):
+                success = await download_pdf(doc['downloadUrl'], output_path)
                 if success:
                     download_count += 1
                     print(f"✓ Downloaded to {output_path}")
                 else:
                     print(f"✗ Download failed")
             else:
-                print(f"✗ No valid URL ({paper.get('downloadUrl', 'N/A')})")
+                print(f"✗ No valid URL ({doc.get('downloadUrl', 'N/A')})")
 
         print("\n" + "=" * 120)
-        success_count = len([p for p in all_papers_with_urls if p.get('downloadUrl', '').startswith('http')])
+        success_count = len([d for d in all_documents_with_urls if d.get('downloadUrl', '').startswith('http')])
 
-        print(f"PAGINATION COMPLETE")
-        print(f"Total pages processed: {page_num}")
-        print(f"Total papers found: {len(all_papers_with_urls)}")
-        print(f"Successfully extracted {success_count}/{len(all_papers_with_urls)} download URLs")
+        print(f"SCRAPING COMPLETE")
+        print(f"Total documents found: {len(all_documents_with_urls)}")
+        print(f"Successfully extracted {success_count}/{len(all_documents_with_urls)} download URLs")
         print(f"Successfully downloaded {download_count}/{success_count} PDFs")
         print("=" * 120)
 
@@ -503,6 +544,10 @@ async def main() -> None:
 
     # Create the directory and all parent directories if they don't exist
     download_path.mkdir(parents=True, exist_ok=True)
+
+    # Create directories for papers and exhibits
+    (download_path / Path("papers")).mkdir(parents=True, exist_ok=True)
+    (download_path / Path("exhibits")).mkdir(parents=True, exist_ok=True)
     
     print(f"Downloading case {case_number} to {download_path}")
 
