@@ -1,5 +1,7 @@
 # Patent Document Downloader
 
+> 🚨 **IMPORTANT**: Always use `uv run` to execute any Python scripts in this project to ensure correct dependencies are used.
+
 ## Project Overview
 
 This project provides a Python script to download patent documents from the US Patent Office website. The application uses Pyppeteer to manage a headless Chromium browser to interact with the USPTO's Angular-based patent case viewer application.
@@ -69,6 +71,8 @@ uv run python -m pyppeteer install
 
 ### Running the Application
 
+🚨 **IMPORTANT**: Always use `uv run` to execute Python scripts in this project to ensure correct dependencies are used.
+
 ```bash
 # Run the simple scraper (current implementation)
 uv run python -m src.patent_downloader.simple_scraper <case_number>
@@ -132,6 +136,8 @@ uv run python -m src.patent_downloader.simple_scraper 106048
 
 ### Testing
 
+🚨 **IMPORTANT**: Always use `uv run` to execute Python scripts and tests.
+
 ```bash
 # Run tests with pytest
 uv run pytest
@@ -158,6 +164,8 @@ uv run mypy src/
 # Run all checks before committing
 uv run ruff format . && uv run ruff check . && uv run mypy src/ && uv run pytest
 ```
+
+Remember to always use `uv run` when executing Python scripts or tools in this project to ensure the correct dependencies are used.
 
 ## Dependencies Management
 
