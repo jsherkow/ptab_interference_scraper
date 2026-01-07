@@ -1,10 +1,40 @@
 [project]
-name = "patents"
+name = "ptab-downloader"
 version = "0.1.0"
-description = "Add your description here"
+description = "Download documents from USPTO PTAB case viewer"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pyppeteer>=2.0.0",
-    "aiohttp==3.13.2"
+    "aiohttp>=3.9.0",
 ]
+
+[project.scripts]
+ptab_downloader = "ptab_downloader.simple_scraper:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ptab_downloader"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "C4", "UP"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+asyncio_mode = "auto"

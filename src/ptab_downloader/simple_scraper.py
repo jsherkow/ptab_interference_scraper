@@ -529,8 +529,8 @@ async def scrape_tables(case_number: str, download_path: Path) -> None:
 async def main() -> None:
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python -m src.patent_downloader.simple_scraper <case_number>")
-        print("Example: python -m src.patent_downloader.simple_scraper 106048")
+        print("Usage: uv run ptab_downloader <case_number> [download_path]")
+        print("Example: uv run ptab_downloader 106048")
         sys.exit(1)
 
     case_number = sys.argv[1]
@@ -554,5 +554,10 @@ async def main() -> None:
     await scrape_tables(case_number, download_path)
 
 
-if __name__ == "__main__":
+def cli() -> None:
+    """CLI entry point for ptab_downloader."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli()
