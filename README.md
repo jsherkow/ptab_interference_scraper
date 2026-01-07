@@ -31,7 +31,7 @@ This tool automates the process of downloading all Papers and Exhibits PDF files
 
 ### Prerequisites
 
-- Python 3.12 or higher
+- Python 3.8 or higher
 - `uv` package manager
 
 ### Setting up the Environment
@@ -42,22 +42,21 @@ This tool automates the process of downloading all Papers and Exhibits PDF files
    curl -sSf https://raw.githubusercontent.com/astral-sh/uv/main/install.sh | bash
    ```
 
-   
 2. Clone this repository:
 
    ```bash
-   git clone https://github.com/jsherkow/ptab_interference_scraper.git
-   cd ptab_interference_scraper
+   git clone https://github.com/your-username/patents.git
+   cd patents
    ```
 
 That's it! No need to manually create a virtual environment or install dependencies. The `uv run` command will handle all of that automatically when you run the script.
 
 ## Usage
 
-Run the tool using `uv run`:
+To run the script, use the `uv run` command followed by the path to the script and the case number:
 
 ```bash
-uv run ptab_downloader <case_number> [output_directory]
+uv run python src/patent_downloader/simple_scraper.py <case_number> [output_directory]
 ```
 
 ### Examples
@@ -65,13 +64,13 @@ uv run ptab_downloader <case_number> [output_directory]
 Download documents for case 106048 to the current directory:
 
 ```bash
-uv run ptab_downloader 106048
+uv run python src/patent_downloader/simple_scraper.py 106048
 ```
 
 Download documents for case 106048 to a specific directory:
 
 ```bash
-uv run ptab_downloader 106048 /path/to/output/directory
+uv run python src/patent_downloader/simple_scraper.py 106048 /path/to/output/directory
 ```
 
 ### Output
@@ -104,7 +103,3 @@ If you encounter issues with the script:
 2. Verify that the case number exists in the P-TACTS system
 3. Check that you have sufficient disk space for downloads
 4. Run with `uv run` to ensure all dependencies are properly loaded
-
-# Acknowledgements
- This research was supported in part by the [Illinois Computes project](https://computes.illinois.edu/about/) 
- which is supported by the University of Illinois Urbana-Champaign.

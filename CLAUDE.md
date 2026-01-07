@@ -4,6 +4,7 @@
 
 ## Project Overview
 
+This project provides a Python script to download patent documents from the US Patent Office website. The application uses Pyppeteer to manage a headless Chromium browser to interact with the USPTO's Angular-based patent case viewer application.
 
 ### Example Target URL
 ```
