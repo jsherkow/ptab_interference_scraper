@@ -104,3 +104,7 @@ If you encounter issues with the script:
 2. Verify that the case number exists in the P-TACTS system
 3. Check that you have sufficient disk space for downloads
 4. Run with `uv run` to ensure all dependencies are properly loaded
+
+# Acknowledgements
+ This research was supported in part by the [Illinois Computes project](https://computes.illinois.edu/about/) 
+ which is supported by the University of Illinois Urbana-Champaign.

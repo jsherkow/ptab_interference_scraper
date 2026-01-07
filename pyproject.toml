@@ -20,7 +20,7 @@ build-backend = "hatchling.build"
 packages = ["src/ptab_downloader"]
 
 [tool.ruff]
-line-length = 100
+line-length = 140
 target-version = "py312"
 
 [tool.ruff.lint]
@@ -38,3 +38,8 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+]
